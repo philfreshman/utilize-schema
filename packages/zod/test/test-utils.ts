@@ -4,6 +4,10 @@ import {
 	parse,
 	type ParsedJSONSchemaObject,
 } from '@utilize/json-schema';
+import { type z } from 'zod';
+
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 import { generate } from '../src/generator';
 import { format } from '../src/utils';
@@ -41,4 +45,23 @@ export async function compile(schema: JSONSchema, options?: CompileOptions) {
 		importZod: options?.importZod ?? false,
 	});
 	return format(code);
+}
+
+/**
+ * Compiles the schema, runs the generated module and returns its `Root` zod
+ * schema. The module is written next to the tests, so `zod` resolves from
+ * this package, and removed after it is loaded.
+ */
+export async function compileToZod(schema: JSONSchema): Promise<z.ZodType> {
+	const code = await compile(schema, { importZod: true });
+	const directory = await mkdtemp(join(__dirname, '__generated__-'));
+
+	try {
+		const filePath = join(directory, 'schema.ts');
+		await writeFile(filePath, code);
+		const module = (await import(filePath)) as { Root: z.ZodType };
+		return module.Root;
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
 }
