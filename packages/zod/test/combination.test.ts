@@ -178,7 +178,9 @@ describe('schema combinations', () => {
 							$id: z.string().optional(),
 							maxLength: NonNegativeInteger.optional(),
 							minLength: NonNegativeIntegerDefault0.optional(),
-							items: z.union([Schema, SchemaArray]).default(true),
+							get items() {
+								return z.union([Schema, SchemaArray]).default(true);
+							},
 						})
 						.meta({ id: 'http://json-schema.org/draft-07/schema#' }),
 					z.boolean().meta({ id: 'http://json-schema.org/draft-07/schema#' }),

@@ -1,9 +1,9 @@
-import { Meta } from '@utilize/json-schema';
+import { Meta, type ParsedJSONSchemaObject } from '@utilize/json-schema';
 
 import { createGenerator } from './createGenerator';
 import { generateSchema } from './generateSchema';
 
-import { NEWLINE, ts } from '../utils';
+import { isSchemaObject, NEWLINE, ts } from '../utils';
 
 export const generator = createGenerator(
 	(schema) => schema.type === 'object',
@@ -22,13 +22,10 @@ export const generator = createGenerator(
 					optionalPart = '';
 				}
 
-				if (value.$ref) {
-					const metadata = value[Meta];
-					if (metadata.isCircular) {
-						return ts`get ${key} () {
+				if (containsCircularRef(value)) {
+					return ts`get ${key} () {
             return ${generateSchema(value, context)}${optionalPart};
           }`;
-					}
 				}
 
 				return `${key}: ${generateSchema(value, context)}${optionalPart}`;
@@ -61,3 +58,28 @@ export const generator = createGenerator(
     })${catchAllPart}`;
 	}
 );
+
+function containsCircularRef(schema: ParsedJSONSchemaObject): boolean {
+	if (schema.$ref) {
+		return schema[Meta].isCircular === true;
+	}
+
+	return subschemasOf(schema).some(containsCircularRef);
+}
+
+function subschemasOf(
+	schema: ParsedJSONSchemaObject
+): ParsedJSONSchemaObject[] {
+	return [
+		Object.values(schema.properties ?? {}),
+		schema.additionalProperties,
+		schema.items,
+		schema.additionalItems,
+		schema.allOf,
+		schema.anyOf,
+		schema.oneOf,
+		schema.not,
+	]
+		.flat()
+		.filter(isSchemaObject<ParsedJSONSchemaObject>);
+}
