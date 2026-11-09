@@ -5,6 +5,7 @@ import {
 } from '@utilize/json-schema';
 import toposort from 'toposort';
 
+import { breakReferenceCycles } from './breakReferenceCycles';
 import { collectStandaloneSchemas } from './collectStandaloneSchemas';
 import { generateSchema } from './generators/generateSchema';
 import { resolveName, type CustomNameResolver } from './resolveName';
@@ -21,7 +22,10 @@ export function generate(
 	}
 
 	const { schemas: standaloneSchemas, edges } = collectStandaloneSchemas(root);
-	const sorted = (toposort(edges).filter(Boolean) as ParsedJSONSchemaObject[])
+	const acyclicEdges = breakReferenceCycles(edges);
+	const sorted = (
+		toposort(acyclicEdges).filter(Boolean) as ParsedJSONSchemaObject[]
+	)
 		.filter((schema) => standaloneSchemas.includes(schema))
 		.reverse();
 
